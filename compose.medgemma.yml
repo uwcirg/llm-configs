@@ -1,0 +1,24 @@
+# docker compose -f compose.medgemma.yml up -d
+# Requires Docker Model Runner with vLLM backend on the host:
+#   docker model install-runner --backend vllm --gpu cuda
+#
+# Set HUGGING_FACE_HUB_TOKEN in .env for the gated HF model pull.
+
+services:
+  medgemma-model:
+    image: alpine:3.20
+    command: ["sleep", "infinity"]
+    models:
+      medgemma:
+        endpoint_var: MEDGEMMA_URL
+        model_var: MEDGEMMA_MODEL
+
+models:
+  medgemma:
+    model: hf.co/google/medgemma-1.5-4b-it
+    context_size: 8192
+    runtime_flags:
+      - "--dtype"
+      - "bfloat16"
+      - "--gpu-memory-utilization"
+      - "0.90"

@@ -1,0 +1,12 @@
+# OpenAI-compatible gateway in front of Docker Model Runner (vLLM).
+# Run: docker model gateway --config gateway.medgemma.yaml
+# Clients must send Authorization: Bearer $OAI_API_KEY (or x-api-key).
+
+model_list:
+  - model_name: google/medgemma-1.5-4b-it
+    params:
+      model: docker_model_runner/hf.co/google/medgemma-1.5-4b-it
+      api_base: http://localhost:12434/engines/vllm/v1
+
+general_settings:
+  master_key: os.environ/OAI_API_KEY

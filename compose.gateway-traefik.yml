@@ -1,0 +1,36 @@
+# Add to existing compose with:
+#   docker compose -f compose.medgemma.yml -f compose.gateway-traefik.yml up -d
+#
+# Set OAI_API_KEY in the environment used to start the gateway process:
+#   docker model gateway --config gateway.medgemma.yaml
+#
+# Docker Desktop: default GATEWAY_UPSTREAM=host.docker.internal:4000
+# Docker Engine on Linux: set GATEWAY_UPSTREAM=host.docker.internal:4000
+# and ensure the gateway listens on an address reachable from this container
+# (binding only 127.0.0.1 is not reachable from socat).
+
+services:
+  model-gateway-proxy:
+    image: alpine/socat
+    command:
+      - TCP-LISTEN:8080,fork,reuseaddr
+      - TCP:${GATEWAY_UPSTREAM:-host.docker.internal:4000}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    expose:
+      - "8080"
+    networks:
+      - ingress
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=external_web
+      - traefik.http.routers.model-gateway-${COMPOSE_PROJECT_NAME}.rule=Host(`models.${BASE_DOMAIN}`)
+      - traefik.http.routers.model-gateway-${COMPOSE_PROJECT_NAME}.entrypoints=websecure
+      - traefik.http.routers.model-gateway-${COMPOSE_PROJECT_NAME}.tls=true
+      - traefik.http.routers.model-gateway-${COMPOSE_PROJECT_NAME}.tls.certresolver=letsencrypt
+      - traefik.http.services.model-gateway-${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=8080
+
+networks:
+  ingress:
+    external: true
+    name: external_web
