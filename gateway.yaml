@@ -1,0 +1,18 @@
+# Shared OpenAI-compatible gateway in front of local model runtimes
+# (Docker Model Runner, Ollama, vLLM, etc.).
+#
+# Run: docker model gateway --config gateway.yaml
+# Clients must send Authorization: Bearer $OAI_API_KEY (or x-api-key).
+#
+# Add a model_list entry per exposed model. Provider prefixes include
+# docker_model_runner, ollama, vllm, and others — see:
+# https://docs.docker.com/reference/cli/docker/model/gateway/
+
+model_list:
+  - model_name: google/medgemma-1.5-4b-it
+    params:
+      model: docker_model_runner/hf.co/google/medgemma-1.5-4b-it
+      api_base: http://localhost:12434/engines/vllm/v1
+
+general_settings:
+  master_key: os.environ/OAI_API_KEY

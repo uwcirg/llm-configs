@@ -1,8 +1,12 @@
-# docker compose -f compose.medgemma.yml up -d
-# Requires Docker Model Runner with vLLM backend on the host:
+# MedGemma via Docker Model Runner (vLLM).
+#
+#   docker compose -f models/medgemma/compose.yml up -d
+#
+# Requires DMR with vLLM on the host:
 #   docker model install-runner --backend vllm --gpu cuda
 #
 # Set HUGGING_FACE_HUB_TOKEN in .env for the gated HF model pull.
+# Register the model in ../../gateway.yaml so clients can reach it.
 
 services:
   medgemma-model:

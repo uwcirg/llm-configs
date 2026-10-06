@@ -1,12 +1,12 @@
-# Add to existing compose with:
-#   docker compose -f compose.medgemma.yml -f compose.gateway-traefik.yml up -d
+# HTTPS front door for the shared model gateway.
 #
-# Set OAI_API_KEY in the environment used to start the gateway process:
-#   docker model gateway --config gateway.medgemma.yaml
+#   docker compose -f models/<model>/compose.yml -f compose.gateway-traefik.yml up -d
 #
-# Docker Desktop: default GATEWAY_UPSTREAM=host.docker.internal:4000
-# Docker Engine on Linux: set GATEWAY_UPSTREAM=host.docker.internal:4000
-# and ensure the gateway listens on an address reachable from this container
+# Start the gateway on the host:
+#   docker model gateway --config gateway.yaml
+#
+# Docker Desktop / Engine: default GATEWAY_UPSTREAM=host.docker.internal:4000.
+# Ensure the gateway listens on an address reachable from this container
 # (binding only 127.0.0.1 is not reachable from socat).
 
 services:
