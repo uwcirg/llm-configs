@@ -1,0 +1,23 @@
+# Shared OpenAI-compatible gateway in front of local model runtimes
+# (Docker Model Runner, Ollama, etc.).
+#
+# Started by systemd (see systemd/docker-model-gateway.service):
+#   docker model gateway --config gateway/gateway.yml --host 172.30.50.1 --port 4000
+#
+# Clients must send Authorization: Bearer $GATEWAY_API_KEY (or x-api-key).
+# Add a model_list entry for every model you expose; keep aliases in sync with
+# the matching models/<name>/compose.yml provisioning definition.
+
+model_list:
+  - model_name: google/medgemma-1.5-4b-it
+    params:
+      model: docker_model_runner/hf.co/google/medgemma-1.5-4b-it
+      api_base: http://127.0.0.1:12434/engines/vllm/v1
+
+  - model_name: qwen3.5:2b
+    params:
+      model: ollama/qwen3.5:2b
+      api_base: http://127.0.0.1:11434/v1
+
+general_settings:
+  master_key: os.environ/GATEWAY_API_KEY

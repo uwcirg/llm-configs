@@ -1,0 +1,30 @@
+# MedGemma via Docker Model Runner (vLLM) on Ubuntu Engine.
+#
+# Merged by deploy.sh:
+#   docker compose -f compose.yaml -f models/medgemma/compose.yml ...
+#
+# Host prerequisite:
+#   docker model install-runner --backend vllm --gpu cuda
+#
+# Set HUGGING_FACE_HUB_TOKEN in .env for the gated HF model pull.
+# Register the alias in gateway/gateway.yml so clients can reach it.
+
+services:
+  medgemma-provision:
+    image: alpine:3.20
+    command: ["true"]
+    restart: "no"
+    models:
+      medgemma:
+        endpoint_var: MEDGEMMA_URL
+        model_var: MEDGEMMA_MODEL
+
+models:
+  medgemma:
+    model: hf.co/google/medgemma-1.5-4b-it
+    context_size: 8192
+    runtime_flags:
+      - "--dtype"
+      - "bfloat16"
+      - "--gpu-memory-utilization"
+      - "0.90"

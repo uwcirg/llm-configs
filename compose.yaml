@@ -1,0 +1,37 @@
+# Shared Traefik front door + Compose network for the host Docker Model Gateway.
+# Model runtimes are declared under models/*/compose.yml and merged at deploy time:
+#   docker compose -f compose.yaml -f models/medgemma/compose.yml -f models/qwen/compose.yml ...
+#
+# Traefik publishes only 80/443. The gateway process is NOT a Compose service;
+# it runs on the host via systemd, bound to 172.30.50.1:4000.
+
+name: ${COMPOSE_PROJECT_NAME:-llm-configs}
+
+services:
+  traefik:
+    image: traefik:v3.3.7
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./letsencrypt:/letsencrypt
+    networks:
+      - model_api_net
+
+networks:
+  model_api_net:
+    name: model_api_net
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.50.0/24
+          gateway: 172.30.50.1
+    driver_opts:
+      com.docker.network.bridge.name: model_api_br
+
+  ollama_internal:
+    name: llm_ollama_net
+    driver: bridge
