@@ -21,9 +21,12 @@ services:
     volumes:
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./traefik/dynamic:/etc/traefik/dynamic:ro
-      - ./letsencrypt:/letsencrypt
+      - letsencrypt:/letsencrypt
     networks:
       - model_api_net
+
+volumes:
+  letsencrypt:
 
 networks:
   model_api_net:

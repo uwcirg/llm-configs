@@ -102,17 +102,16 @@ Auth also accepts `x-api-key: <GATEWAY_API_KEY>`.
 
 `./deploy.sh` will:
 
-1. Ensure `letsencrypt/acme.json` exists (mode `0600`)
-2. `docker compose up -d --remove-orphans` (Compose loads `.env` / `COMPOSE_FILE`; creates/updates networks and services)
-3. `systemctl restart docker-model-gateway`
+1. `docker compose up -d --remove-orphans` (Compose loads `.env` / `COMPOSE_FILE`; creates/updates networks, volumes, and services)
+2. `systemctl restart docker-model-gateway`
 
-`ACME_EMAIL` is passed to Traefik via a Compose CLI flag. `MODEL_API_FQDN` is passed as a container env var and read in [`traefik/dynamic/model-api.yml`](traefik/dynamic/model-api.yml) with `{{ env "MODEL_API_FQDN" }}`.
+`ACME_EMAIL` is passed to Traefik via a Compose CLI flag. `MODEL_API_FQDN` is passed as a container env var and read in [`traefik/dynamic/model-api.yml`](traefik/dynamic/model-api.yml) with `{{ env "MODEL_API_FQDN" }}`. ACME certificates live in the Compose `letsencrypt` volume (Traefik manages `acme.json`).
 
 ## Rollback
 
 1. `git checkout <previous-good-revision>`
 2. `./deploy.sh`
-3. Keep `letsencrypt/` (ACME) and model caches; do not delete `model_api_net` while the gateway is bound to `172.30.50.1`
+3. Keep the Compose `letsencrypt` volume (ACME) and model caches; do not delete `model_api_net` while the gateway is bound to `172.30.50.1`
 
 ## Secret rotation
 
