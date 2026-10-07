@@ -9,7 +9,7 @@ Wants=network-online.target
 Type=simple
 EnvironmentFile=-/etc/docker-model-gateway.env
 # Bind ONLY to the Compose bridge gateway address — never fall back to 0.0.0.0.
-# LLM_CONFIGS_ROOT is required in /etc/docker-model-gateway.env (deploy.sh writes it).
+# Set LLM_CONFIGS_ROOT once in /etc/docker-model-gateway.env (e.g. /opt/llm-configs).
 ExecStartPre=/usr/bin/docker network inspect model_api_net
 ExecStartPre=/bin/bash -c 'ip -4 addr show model_api_br | grep -q 172.30.50.1'
 ExecStart=/bin/bash -c 'test -n "${LLM_CONFIGS_ROOT}" && test -f "${LLM_CONFIGS_ROOT}/gateway/gateway.yml" && exec /usr/bin/docker model gateway --config "${LLM_CONFIGS_ROOT}/gateway/gateway.yml" --host 172.30.50.1 --port 4000'

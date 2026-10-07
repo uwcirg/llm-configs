@@ -1,6 +1,5 @@
 # Shared Traefik front door + Compose network for the host Docker Model Gateway.
-# Model runtimes are declared under models/*/compose.yml and merged at deploy time:
-#   docker compose -f compose.yaml -f models/medgemma/compose.yml -f models/qwen/compose.yml ...
+# Merge model overlays via COMPOSE_FILE in .env (see .env.example).
 #
 # Traefik publishes only 80/443. The gateway process is NOT a Compose service;
 # it runs on the host via systemd, bound to 172.30.50.1:4000.
@@ -11,6 +10,11 @@ services:
   traefik:
     image: traefik:v3.3.7
     restart: unless-stopped
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
+    environment:
+      MODEL_API_FQDN: ${MODEL_API_FQDN}
     ports:
       - "80:80"
       - "443:443"

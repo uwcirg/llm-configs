@@ -1,5 +1,5 @@
-# Rendered by deploy.sh via envsubst (ACME_EMAIL).
-# Do not commit the generated traefik/traefik.yml.
+# Static Traefik config. ACME email is set via Compose CLI flag
+# (--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}).
 
 api:
   dashboard: false
@@ -28,7 +28,6 @@ providers:
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: "${ACME_EMAIL}"
       storage: /letsencrypt/acme.json
       httpChallenge:
         entryPoint: web

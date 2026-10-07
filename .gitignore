@@ -1,5 +1,3 @@
 .env
 letsencrypt/
-traefik/traefik.yml
-traefik/dynamic/model-api.yml
 *.acme.json

@@ -1,5 +1,5 @@
-# Rendered by deploy.sh via envsubst (MODEL_API_FQDN).
-# Do not commit the generated traefik/dynamic/model-api.yml.
+# Dynamic router. MODEL_API_FQDN is injected into the Traefik container by Compose
+# and expanded here via Traefik Go templating (dynamic file provider only).
 #
 # Upstream is the host bridge gateway address where docker model gateway binds.
 # Authorization is enforced by the gateway master_key, not Traefik.
@@ -7,7 +7,7 @@
 http:
   routers:
     model-api:
-      rule: "Host(`${MODEL_API_FQDN}`)"
+      rule: Host(`{{ env "MODEL_API_FQDN" }}`)
       entryPoints:
         - websecure
       service: model-gateway

@@ -20,9 +20,9 @@ Client → Traefik (:443) → host gateway 172.30.50.1:4000
 | [`gateway/gateway.yml`](gateway/gateway.yml) | Researchers | Public model aliases + upstream routing |
 | [`models/<name>/compose.yml`](models/) | Researchers | How to provision each local model |
 | [`compose.yaml`](compose.yaml) | Operators | Traefik + `model_api_net` bridge |
-| [`traefik/traefik.yml.tpl`](traefik/traefik.yml.tpl), [`traefik/templates/`](traefik/templates/) | Operators | TLS / routing templates (rendered into `traefik/` + `traefik/dynamic/`) |
-| [`systemd/docker-model-gateway.service`](systemd/docker-model-gateway.service) | Operators | Host gateway unit |
-| [`deploy.sh`](deploy.sh) | Operators / VM | Idempotent apply |
+| [`traefik/`](traefik/) | Operators | TLS static config + dynamic router (`MODEL_API_FQDN` via Traefik `env`) |
+| [`systemd/docker-model-gateway.service`](systemd/docker-model-gateway.service) | Operators | Host gateway unit (install once) |
+| [`deploy.sh`](deploy.sh) | Operators / VM | `compose up` + gateway restart |
 
 Secrets never go in Git. Gateway auth lives in `/etc/docker-model-gateway.env`.
 
@@ -52,10 +52,15 @@ cd /opt/llm-configs   # or your clone path
 cp .env.example .env
 # edit MODEL_API_FQDN, ACME_EMAIL, HUGGING_FACE_HUB_TOKEN
 
-sudo install -m 0600 /dev/null /etc/docker-model-gateway.env
-echo 'GATEWAY_API_KEY='$(openssl rand -hex 32) | sudo tee /etc/docker-model-gateway.env
+sudo tee /etc/docker-model-gateway.env >/dev/null <<EOF
+GATEWAY_API_KEY=$(openssl rand -hex 32)
+LLM_CONFIGS_ROOT=/opt/llm-configs
+EOF
 sudo chmod 0600 /etc/docker-model-gateway.env
-# deploy.sh also writes LLM_CONFIGS_ROOT into this file
+
+sudo install -m 0644 systemd/docker-model-gateway.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable docker-model-gateway.service
 
 ./deploy.sh
 ```
@@ -97,12 +102,11 @@ Auth also accepts `x-api-key: <GATEWAY_API_KEY>`.
 
 `./deploy.sh` will:
 
-1. Load `.env` and `/etc/docker-model-gateway.env` (created during install)
-2. Render Traefik YAML from `*.tpl` (`MODEL_API_FQDN`, `ACME_EMAIL`)
-3. `docker compose up -d traefik` (creates/keeps `model_api_net`; does **not** `compose down`)
-4. Start Ollama, pull `qwen3.5:2b`, provision MedGemma via Compose `models:`
-5. Install/enable the systemd unit, set `LLM_CONFIGS_ROOT`, restart the gateway
-6. Smoke-test auth denial and both model aliases over HTTPS
+1. Ensure `letsencrypt/acme.json` exists (mode `0600`)
+2. `docker compose up -d --remove-orphans` (Compose loads `.env` / `COMPOSE_FILE`; creates/updates networks and services)
+3. `systemctl restart docker-model-gateway`
+
+`ACME_EMAIL` is passed to Traefik via a Compose CLI flag. `MODEL_API_FQDN` is passed as a container env var and read in [`traefik/dynamic/model-api.yml`](traefik/dynamic/model-api.yml) with `{{ env "MODEL_API_FQDN" }}`.
 
 ## Rollback
 
