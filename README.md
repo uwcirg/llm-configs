@@ -4,13 +4,12 @@ GitOps YAML for a shared OpenAI-compatible model API on Ubuntu.
 
 Researchers edit committed YAML, pull on the model VM, and run `./deploy.sh`.
 The public entrypoint is `https://<MODEL_API_FQDN>/v1/...`. Traefik terminates
-TLS; Docker Model Gateway enforces the API key; backends are Docker Model Runner
-and/or Ollama on host loopback.
+TLS; Docker Model Gateway enforces the API key; Docker Model Runner (vLLM) serves
+models on host loopback.
 
 ```text
 Client → Traefik (:443) → host gateway 172.30.50.1:4000
-                              ├─ Docker Model Runner 127.0.0.1:12434  (MedGemma / vLLM)
-                              └─ Ollama                 127.0.0.1:11434  (qwen3.5:2b)
+                              └─ Docker Model Runner 127.0.0.1:12434  (vLLM)
 ```
 
 ## Layout
@@ -18,8 +17,7 @@ Client → Traefik (:443) → host gateway 172.30.50.1:4000
 | Path | Who edits | Purpose |
 |------|-----------|---------|
 | [`gateway/gateway.yml`](gateway/gateway.yml) | Researchers | Public model aliases + upstream routing |
-| [`models/<name>/compose.yml`](models/) | Researchers | How to provision each local model |
-| [`compose.yaml`](compose.yaml) | Operators | Traefik + `model_api_net` bridge |
+| [`compose.yaml`](compose.yaml) `models:` | Researchers | Model artifacts, context size, and runtime flags |
 | [`traefik/`](traefik/) | Operators | TLS static config + dynamic router (`MODEL_API_FQDN` via Traefik `env`) |
 | [`systemd/docker-model-gateway.service`](systemd/docker-model-gateway.service) | Operators | Host gateway unit (install once) |
 | [`deploy.sh`](deploy.sh) | Operators / VM | `compose up` + gateway restart |
@@ -28,10 +26,10 @@ Secrets never go in Git. Gateway auth lives in `/etc/docker-model-gateway.env`.
 
 ## Configured models
 
-| Client `model` id | Runtime | Provisioning |
-|-------------------|---------|--------------|
-| `google/medgemma-1.5-4b-it` | Docker Model Runner / vLLM | [`models/medgemma/compose.yml`](models/medgemma/compose.yml) |
-| `qwen3.5:2b` | Ollama | [`models/qwen/compose.yml`](models/qwen/compose.yml) |
+| Client `model` id | Runtime |
+|-------------------|---------|
+| `google/medgemma-1.5-4b-it` | Docker Model Runner / vLLM |
+| `Qwen/Qwen3.5-2B` | Docker Model Runner / vLLM |
 
 ## Prerequisites (operator, once per VM)
 
@@ -41,7 +39,7 @@ Secrets never go in Git. Gateway auth lives in `/etc/docker-model-gateway.env`.
 - DNS A record for `MODEL_API_FQDN` pointing at the VM; ports 80 and 443 reachable for HTTP-01
 - Host/cloud firewall:
   - Allow TCP 80, 443 from the internet (and SSH from admin sources)
-  - Deny external access to TCP 4000, 11434, and 12434
+  - Deny external access to TCP 4000 and 12434
   - Prefer allowing TCP 4000 on host **INPUT** only from `model_api_br` / `172.30.50.0/24`
 - Checkout this repo on the VM (example: `/opt/llm-configs`)
 
@@ -67,22 +65,18 @@ sudo systemctl enable docker-model-gateway.service
 
 ## Researcher workflow (add or change a model)
 
-1. **Provision YAML** — add or edit `models/<name>/compose.yml`
-   - Docker Model Runner: top-level `models:` + a short-lived service that references the model
-   - Ollama: service + pull one-shot (see `models/qwen/`)
-2. **Gateway alias** — add a matching `model_list` entry in [`gateway/gateway.yml`](gateway/gateway.yml)
-   - DMR example: `model: docker_model_runner/<artifact>`, `api_base: http://127.0.0.1:12434/engines/<engine>/v1`
-   - Ollama example: `model: ollama/<name:tag>`, `api_base: http://127.0.0.1:11434/v1`
+1. In [`compose.yaml`](compose.yaml), add a top-level `models:` entry and its name on the `models` service list.
+2. Add a matching `model_list` entry in [`gateway/gateway.yml`](gateway/gateway.yml): `model: docker_model_runner/<artifact>` and `api_base: http://127.0.0.1:12434/engines/vllm/v1` (or `engines/llama.cpp/v1` for a GGUF model).
 3. Commit and push; on the VM `git pull` and run `./deploy.sh`
 4. Call `https://<MODEL_API_FQDN>/v1/chat/completions` with `Authorization: Bearer <GATEWAY_API_KEY>`
 
-Removing a model: delete its `models/` file and `model_list` entry, redeploy. Cached weights are **not** deleted automatically (safe default).
+Removing a model: delete its `models:` entry, its name on the service list, and its `model_list` entry, then redeploy. Cached weights are **not** deleted automatically (safe default).
 
 ### Files researchers should not change without an operator
 
 - Bridge subnet / `172.30.50.1` (must stay consistent across Compose, Traefik upstream, systemd, firewall)
 - Traefik image pin, ACME storage path, published ports
-- Binding the gateway to `0.0.0.0` or publishing Ollama / Model Runner publicly
+- Binding the gateway to `0.0.0.0` or publishing Model Runner publicly
 
 ## Client usage
 
@@ -91,7 +85,7 @@ curl "https://${MODEL_API_FQDN}/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer ${GATEWAY_API_KEY}" \
   -d '{
-    "model": "qwen3.5:2b",
+    "model": "Qwen/Qwen3.5-2B",
     "messages": [{"role": "user", "content": "Hello"}]
   }'
 ```

@@ -1,12 +1,21 @@
 # Shared Traefik front door + Compose network for the host Docker Model Gateway.
-# Merge model overlays via COMPOSE_FILE in .env (see .env.example).
 #
 # Traefik publishes only 80/443. The gateway process is NOT a Compose service;
 # it runs on the host via systemd, bound to 172.30.50.1:4000.
+# The models service exits immediately; Compose uses it to pull and configure
+# every entry under top-level models: via Docker Model Runner.
 
 name: ${COMPOSE_PROJECT_NAME:-llm-configs}
 
 services:
+  models:
+    image: alpine:3.20
+    command: ["true"]
+    restart: "no"
+    models:
+      - medgemma
+      - qwen
+
   traefik:
     image: traefik:v3.3.7
     restart: unless-stopped
@@ -28,6 +37,18 @@ services:
 volumes:
   letsencrypt:
 
+models:
+  medgemma:
+    model: hf.co/google/medgemma-1.5-4b-it
+    context_size: 8192
+    runtime_flags:
+      - "--dtype"
+      - "bfloat16"
+      - "--gpu-memory-utilization"
+      - "0.90"
+  qwen:
+    model: hf.co/Qwen/Qwen3.5-2B
+
 networks:
   model_api_net:
     name: model_api_net
@@ -38,7 +59,3 @@ networks:
           gateway: 172.30.50.1
     driver_opts:
       com.docker.network.bridge.name: model_api_br
-
-  ollama_internal:
-    name: llm_ollama_net
-    driver: bridge
