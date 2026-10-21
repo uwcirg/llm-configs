@@ -48,7 +48,9 @@ Secrets never go in Git. Gateway auth lives in `/etc/docker-model-gateway.env`.
 ```bash
 cd /opt/llm-configs   # or your clone path
 cp .env.example .env
-# edit MODEL_API_FQDN, ACME_EMAIL, HUGGING_FACE_HUB_TOKEN
+# edit MODEL_API_FQDN, ACME_EMAIL, HF_TOKEN
+# HF_TOKEN is a Hugging Face read token. Accept the MedGemma license on the
+# model page first. docker model does not read HUGGING_FACE_HUB_TOKEN.
 
 sudo tee /etc/docker-model-gateway.env >/dev/null <<EOF
 GATEWAY_API_KEY=$(openssl rand -hex 32)
