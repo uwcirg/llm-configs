@@ -84,6 +84,73 @@ services:
     networks:
       - llm_net
 
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:v0.12.4
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/openwebui
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:-poc-webui-secret-key-change-me}
+      WEBUI_URL: https://llm.${BASE_DOMAIN}
+      ENABLE_SIGNUP: "false"
+      ENABLE_PERSISTENT_CONFIG: "false"
+      WEBUI_ADMIN_EMAIL: admin@${BASE_DOMAIN}
+      WEBUI_ADMIN_PASSWORD: admin
+      WEBUI_ADMIN_NAME: admin
+      ENABLE_OLLAMA_API: "true"
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_BASE_URLS: http://ollama:11434
+      # Hide bare Ollama ids from the chat selector. Admin → Settings → Models
+      # still pulls through this connection. Chat uses the LiteLLM models.
+      OLLAMA_API_CONFIGS: '{"0":{"enable":true,"model_ids":["__pull_only__"]}}'
+      ENABLE_OPENAI_API: "true"
+      OPENAI_API_BASE_URL: http://litellm:4000/v1
+      OPENAI_API_BASE_URLS: http://litellm:4000/v1
+      OPENAI_API_KEY: ${LITELLM_RESEARCHER_KEY:-sk-researcher-key-change-me}
+      OPENAI_API_KEYS: ${LITELLM_RESEARCHER_KEY:-sk-researcher-key-change-me}
+      # Future Keycloak / OIDC. Leave unset until that service exists.
+      # OAUTH_CLIENT_ID: ""
+      # OAUTH_CLIENT_SECRET: ""
+      # OPENID_PROVIDER_URL: https://auth.${BASE_DOMAIN}/realms/llm/.well-known/openid-configuration
+      # OPENID_REDIRECT_URI: https://llm.${BASE_DOMAIN}/oauth/oidc/callback
+      # ENABLE_OAUTH_SIGNUP: "true"
+      # OAUTH_PROVIDER_NAME: Keycloak
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+      litellm:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 40s
+    networks:
+      - llm_net
+
+  openwebui-bootstrap:
+    image: curlimages/curl:8.11.1
+    restart: "no"
+    entrypoint: ["/bin/sh", "/bootstrap.sh"]
+    environment:
+      WEBUI_ADMIN_EMAIL: admin@${BASE_DOMAIN}
+      WEBUI_ADMIN_PASSWORD: admin
+      RESEARCHER_EMAIL: researcher@${BASE_DOMAIN}
+      RESEARCHER_PASSWORD: researcher
+      RESEARCHER_NAME: researcher
+      USER_EMAIL: user@${BASE_DOMAIN}
+      USER_PASSWORD: user
+      USER_NAME: user
+    volumes:
+      - ./openwebui/bootstrap-users.sh:/bootstrap.sh:ro
+    depends_on:
+      openwebui:
+        condition: service_healthy
+    networks:
+      - llm_net
+
 volumes:
   postgres-data:
   ollama-models:
