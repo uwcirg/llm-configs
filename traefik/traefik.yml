@@ -1,0 +1,32 @@
+# HTTP-01 on the web entrypoint. Traefik answers /.well-known/acme-challenge/
+# before the web → websecure redirect, so the challenge still works.
+api:
+  dashboard: true
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+  websecure:
+    address: ":443"
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      storage: /letsencrypt/acme.json
+      httpChallenge:
+        entryPoint: web
+
+providers:
+  docker:
+    endpoint: unix:///var/run/docker.sock
+    exposedByDefault: false
+    network: llm_net
+
+log:
+  level: INFO
