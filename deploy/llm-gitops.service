@@ -1,0 +1,10 @@
+[Unit]
+Description=Apply the shared LLM Compose project from git
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/llm-configs
+ExecStart=/opt/llm-configs/deploy/deploy.sh
