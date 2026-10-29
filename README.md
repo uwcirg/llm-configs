@@ -105,6 +105,21 @@ curl "https://models.${BASE_DOMAIN}/v1/chat/completions" \
   -d '{"model":"ollama/llama3.2","messages":[{"role":"user","content":"Hello"}]}'
 ```
 
+### Embeddings
+
+`/v1/embeddings` serves `embed/nomic-embed-text`. Pull `nomic-embed-text` in Open WebUI first (same place as other models). The stack does not store vectors; clients keep their own. See [`docs/context-injection-options.md`](docs/context-injection-options.md).
+
+```bash
+curl "https://models.${BASE_DOMAIN}/v1/embeddings" \
+  -H "Authorization: Bearer ${LITELLM_RESEARCHER_KEY:-sk-researcher-key-change-me}" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"embed/nomic-embed-text","input":["Prefers R over Python","Works on the sleep study"]}'
+```
+
+The response holds one vector per input, in `data[i].embedding`. Embed stored text and queries with the same model.
+
+The embedding model counts toward `OLLAMA_MAX_LOADED_MODELS` (default 2). With one chat model and the embedder loaded, a second chat model evicts one of them. Raise the limit in `.env` if that happens often.
+
 The Traefik dashboard is `https://traefik-dashboard.$BASE_DOMAIN` with Basic Auth `admin` / `admin`.
 
 ## systemd timer
