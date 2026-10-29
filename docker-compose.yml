@@ -99,7 +99,7 @@ services:
       WEBUI_URL: https://llm.${BASE_DOMAIN}
       ENABLE_SIGNUP: "false"
       ENABLE_PERSISTENT_CONFIG: "false"
-      WEBUI_ADMIN_EMAIL: admin@${BASE_DOMAIN}
+      WEBUI_ADMIN_EMAIL: admin@localhost
       WEBUI_ADMIN_PASSWORD: admin
       WEBUI_ADMIN_NAME: admin
       ENABLE_OLLAMA_API: "true"
@@ -147,12 +147,12 @@ services:
     restart: "no"
     entrypoint: ["/bin/sh", "/bootstrap.sh"]
     environment:
-      WEBUI_ADMIN_EMAIL: admin@${BASE_DOMAIN}
+      WEBUI_ADMIN_EMAIL: admin@localhost
       WEBUI_ADMIN_PASSWORD: admin
-      RESEARCHER_EMAIL: researcher@${BASE_DOMAIN}
+      RESEARCHER_EMAIL: researcher@localhost
       RESEARCHER_PASSWORD: researcher
       RESEARCHER_NAME: researcher
-      USER_EMAIL: user@${BASE_DOMAIN}
+      USER_EMAIL: user@localhost
       USER_PASSWORD: user
       USER_NAME: user
     volumes:

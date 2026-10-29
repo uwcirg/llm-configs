@@ -90,9 +90,11 @@ Open WebUI logins are email addresses. Signup is disabled.
 
 | Login | Password | Role |
 |-------|----------|------|
-| `admin@$BASE_DOMAIN` | `admin` | Admin: users, and model pull |
-| `researcher@$BASE_DOMAIN` | `researcher` | Standard user |
-| `user@$BASE_DOMAIN` | `user` | Second standard user, for multi-user checks |
+| `admin@localhost` | `admin` | Admin: users, and model pull |
+| `researcher@localhost` | `researcher` | Standard user |
+| `user@localhost` | `user` | Second standard user, for multi-user checks |
+
+These addresses are created only when the Open WebUI user table is empty. An existing `postgres-data` volume keeps the previous `admin@$BASE_DOMAIN` accounts until that volume is recreated.
 
 The admin account pulls models in **Admin Settings → Models → Pull a model from Ollama.com**. That request goes straight to the Ollama API. Bare Ollama ids are hidden from the chat picker so inference does not skip the proxy. After a pull, chat (and `GET /v1/models`) shows the model as `ollama/<tag>`, for example `ollama/llama3.2:latest`. Those calls go to LiteLLM, which forwards to Ollama and records spend on the shared researcher key.
 
