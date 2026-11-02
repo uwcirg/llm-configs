@@ -50,6 +50,8 @@ services:
     command: ["--config", "/app/config.yaml"]
     env_file:
       - ./litellm.env
+    environment:
+      PROXY_BASE_URL: https://models.${BASE_DOMAIN}
     volumes:
       - ./litellm/config.yaml:/app/config.yaml:ro
     labels:

@@ -16,6 +16,8 @@ Browser / SDK
 
 Ollama and Postgres publish no host ports. Only Traefik listens on 80 and 443.
 
+LiteLLM trusts Traefik’s `X-Forwarded-*` headers from any peer (PoC) so spend logs show the client IP from `X-Forwarded-For` instead of the Traefik container address. `PROXY_BASE_URL` is set to `https://models.$BASE_DOMAIN`.
+
 ## PoC only — replace before production
 
 This checkout favors a working default over hardening:
