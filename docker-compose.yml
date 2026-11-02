@@ -52,6 +52,8 @@ services:
       - ./litellm.env
     environment:
       PROXY_BASE_URL: https://llm.${BASE_DOMAIN}
+    expose:
+      - 4000
     volumes:
       - ./litellm/config.yaml:/app/config.yaml:ro
     labels:
@@ -59,7 +61,6 @@ services:
       - traefik.http.routers.llm.rule=Host(`llm.${BASE_DOMAIN}`)
       - traefik.http.routers.llm.entrypoints=websecure
       - traefik.http.routers.llm.tls.certresolver=letsencrypt
-      - traefik.http.services.llm.loadbalancer.server.port=4000
     depends_on:
       postgres:
         condition: service_healthy
@@ -104,12 +105,13 @@ services:
       # OPENID_REDIRECT_URI: https://chat.${BASE_DOMAIN}/oauth/oidc/callback
       # ENABLE_OAUTH_SIGNUP: "true"
       # OAUTH_PROVIDER_NAME: Keycloak
+    expose:
+      - 8080
     labels:
       - traefik.enable=true
       - traefik.http.routers.chat.rule=Host(`chat.${BASE_DOMAIN}`)
       - traefik.http.routers.chat.entrypoints=websecure
       - traefik.http.routers.chat.tls.certresolver=letsencrypt
-      - traefik.http.services.chat.loadbalancer.server.port=8080
     depends_on:
       postgres:
         condition: service_healthy
