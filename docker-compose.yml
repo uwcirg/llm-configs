@@ -51,6 +51,7 @@ services:
     env_file:
       - ./litellm.env
     environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-p9Kx2mQ7vL4nR8wT}@postgres:5432/litellm
       PROXY_BASE_URL: https://llm.${BASE_DOMAIN}
     expose:
       - 4000
@@ -79,6 +80,7 @@ services:
     env_file:
       - ./openwebui.env
     environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-p9Kx2mQ7vL4nR8wT}@postgres:5432/openwebui
       WEBUI_URL: https://chat.${BASE_DOMAIN}
       ENABLE_SIGNUP: "false"
       ENABLE_PERSISTENT_CONFIG: "false"

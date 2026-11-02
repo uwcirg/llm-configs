@@ -53,11 +53,11 @@ cp openwebui.env.example openwebui.env
 Optional overrides:
 
 - Ollama tuning → [`ollama.env.example`](ollama.env.example)
-- LiteLLM master/salt keys and `DATABASE_URL` → [`litellm.env.example`](litellm.env.example)
-- Open WebUI secret and `DATABASE_URL` → [`openwebui.env.example`](openwebui.env.example)
+- LiteLLM master/salt keys → [`litellm.env.example`](litellm.env.example)
+- Open WebUI secret → [`openwebui.env.example`](openwebui.env.example)
 - `ACME_EMAIL`, `LITELLM_OPENWEBUI_KEY` → comments in [`.env.example`](.env.example)
 
-If you change the Postgres password in Compose, update both app `DATABASE_URL`s to match. After creating Open WebUI’s virtual key in the LiteLLM UI, set `LITELLM_OPENWEBUI_KEY` in `.env` to that value (or keep the Compose default and create a key with the same string).
+App `DATABASE_URL`s are built in Compose from `POSTGRES_USER` / `POSTGRES_PASSWORD`, so they stay aligned with the Postgres service. After creating Open WebUI’s virtual key in the LiteLLM UI, set `LITELLM_OPENWEBUI_KEY` in `.env` to that value (or keep the Compose default and create a key with the same string).
 
 ### DNS
 
@@ -143,7 +143,7 @@ journalctl --unit llm-gitops.service
 
 ## Rotating the PoC passwords
 
-- **Postgres.** Change `POSTGRES_PASSWORD` in Compose (or set it in the project `.env`). Update `DATABASE_URL` in both `litellm.env` and `openwebui.env`. The init SQL does not contain the password. Changing the variable does not alter a database that already exists. On a live volume, `ALTER USER postgres WITH PASSWORD '…'` inside the container, then recreate the app containers. To start over, remove the `postgres-data` volume (that deletes chat history and LiteLLM keys).
+- **Postgres.** Change `POSTGRES_PASSWORD` in Compose (or set it in the project `.env`). App `DATABASE_URL`s pick up the new value automatically. The init SQL does not contain the password. Changing the variable does not alter a database that already exists. On a live volume, `ALTER USER postgres WITH PASSWORD '…'` inside the container, then recreate the app containers. To start over, remove the `postgres-data` volume (that deletes chat history and LiteLLM keys).
 - **Open WebUI.** Change passwords in the admin UI. `WEBUI_ADMIN_PASSWORD` is applied only when the database has no users. Rotate `WEBUI_SECRET_KEY` in `openwebui.env`; existing sessions stop working.
 - **LiteLLM master key.** Change `LITELLM_MASTER_KEY` in `litellm.env` and recreate the LiteLLM container. Leave `LITELLM_SALT_KEY` alone once the database exists. Rotate Open WebUI’s key by creating a new virtual key in the LiteLLM admin UI and setting `LITELLM_OPENWEBUI_KEY` in `.env`, then recreating Open WebUI.
 - **Traefik dashboard.** Generate a new apr1 hash (`openssl passwd --apr1`) and replace the `dashboard-auth` label. In the Compose file write each `$` as `$$`.
