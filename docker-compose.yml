@@ -2,7 +2,7 @@ name: llm-configs
 
 services:
   postgres:
-    image: postgres:16
+    image: postgres:${POSTGRES_DOCKER_IMAGE_TAG:-16}
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -19,7 +19,7 @@ services:
       - llm_net
 
   ollama:
-    image: ollama/ollama
+    image: ollama/ollama:${OLLAMA_DOCKER_IMAGE_TAG:-latest}
     restart: unless-stopped
     env_file:
       - ./ollama.env
@@ -45,7 +45,7 @@ services:
       - llm_net
 
   litellm:
-    image: ghcr.io/berriai/litellm-database:v1.106.5
+    image: ghcr.io/berriai/litellm-database:${LITELLM_DOCKER_IMAGE_TAG:-v1.106.5}
     restart: unless-stopped
     command: ["--config", "/app/config.yaml"]
     env_file:
@@ -74,7 +74,7 @@ services:
       - llm_net
 
   openwebui:
-    image: ghcr.io/open-webui/open-webui:v0.12.4
+    image: ghcr.io/open-webui/open-webui:${OPENWEBUI_DOCKER_IMAGE_TAG:-v0.12.4}
     restart: unless-stopped
     env_file:
       - ./openwebui.env
@@ -129,7 +129,7 @@ services:
       - llm_net
 
   openwebui-bootstrap:
-    image: curlimages/curl:8.11.1
+    image: curlimages/curl:${OPENWEBUI_BOOTSTRAP_DOCKER_IMAGE_TAG:-8.11.1}
     restart: "no"
     entrypoint: ["/bin/sh", "/bootstrap.sh"]
     environment:
@@ -150,7 +150,7 @@ services:
       - llm_net
 
   traefik:
-    image: traefik:v3.6.25
+    image: traefik:${TRAEFIK_DOCKER_IMAGE_TAG:-v3.6.25}
     restart: unless-stopped
     command:
       - --configFile=/etc/traefik/traefik.yml
