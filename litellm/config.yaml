@@ -20,6 +20,8 @@ litellm_settings:
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
   database_url: os.environ/DATABASE_URL
+  # Store request messages and responses in LiteLLM_Spend_Logs (UI Logs).
+  store_prompts_in_spend_logs: true
   # Future Keycloak / OIDC. Not enabled. Set these when that service exists:
   #   GENERIC_CLIENT_ID
   #   GENERIC_CLIENT_SECRET
