@@ -72,20 +72,6 @@ services:
     networks:
       - llm_net
 
-  litellm-bootstrap:
-    image: curlimages/curl:8.11.1
-    restart: "no"
-    entrypoint: ["/bin/sh", "/bootstrap.sh"]
-    env_file:
-      - ./litellm.env
-    volumes:
-      - ./litellm/bootstrap-keys.sh:/bootstrap.sh:ro
-    depends_on:
-      litellm:
-        condition: service_healthy
-    networks:
-      - llm_net
-
   openwebui:
     image: ghcr.io/open-webui/open-webui:v0.12.4
     restart: unless-stopped
@@ -107,6 +93,10 @@ services:
       ENABLE_OPENAI_API: "true"
       OPENAI_API_BASE_URL: http://litellm:4000/v1
       OPENAI_API_BASE_URLS: http://litellm:4000/v1
+      # Dedicated LiteLLM virtual key for this Open WebUI instance. Uses
+      # LITELLM_OPENWEBUI_KEY from the project .env / shell when set.
+      OPENAI_API_KEY: ${LITELLM_OPENWEBUI_KEY:-sk-openwebui-key-change-me}
+      OPENAI_API_KEYS: ${LITELLM_OPENWEBUI_KEY:-sk-openwebui-key-change-me}
       # Future Keycloak / OIDC. Leave unset until that service exists.
       # OAUTH_CLIENT_ID: ""
       # OAUTH_CLIENT_SECRET: ""

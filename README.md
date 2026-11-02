@@ -25,7 +25,7 @@ This checkout favors a working default over hardening:
 - Postgres superuser is `postgres` with a hard-to-guess default password set in Compose (`p9Kx2mQ7vL4nR8wT`). Still plaintext in git.
 - Traefik dashboard Basic Auth is `admin` / `admin`.
 - LiteLLM UI user is `admin`. The password is `LITELLM_MASTER_KEY` from `litellm.env`.
-- One shared LiteLLM virtual key (`LITELLM_RESEARCHER_KEY`) authenticates every Open WebUI chat. Direct API callers can be given their own keys later.
+- Open WebUI chat uses a dedicated LiteLLM virtual key (`LITELLM_OPENWEBUI_KEY`). Compose defaults it; create the matching key in the LiteLLM admin UI. Direct API callers get their own keys there too. No virtual keys are bootstrapped automatically.
 - Open WebUI passwords are `admin`, `researcher`, and `user`.
 - Do not change `LITELLM_SALT_KEY` after the database exists; stored secrets cannot be decrypted with a new salt.
 - Nothing here restricts SSH or other host ports.
@@ -51,11 +51,11 @@ cp openwebui.env.example openwebui.env
 Optional overrides:
 
 - Ollama tuning → [`ollama.env.example`](ollama.env.example)
-- LiteLLM keys and `DATABASE_URL` → [`litellm.env.example`](litellm.env.example)
-- Open WebUI secret, OpenAI key, and `DATABASE_URL` → [`openwebui.env.example`](openwebui.env.example)
-- `ACME_EMAIL` → comment in [`.env.example`](.env.example)
+- LiteLLM master/salt keys and `DATABASE_URL` → [`litellm.env.example`](litellm.env.example)
+- Open WebUI secret and `DATABASE_URL` → [`openwebui.env.example`](openwebui.env.example)
+- `ACME_EMAIL`, `LITELLM_OPENWEBUI_KEY` → comments in [`.env.example`](.env.example)
 
-If you change the Postgres password in Compose, update both app `DATABASE_URL`s to match. Keep Open WebUI’s `OPENAI_API_KEY` aligned with `LITELLM_RESEARCHER_KEY`.
+If you change the Postgres password in Compose, update both app `DATABASE_URL`s to match. After creating Open WebUI’s virtual key in the LiteLLM UI, set `LITELLM_OPENWEBUI_KEY` in `.env` to that value (or keep the Compose default and create a key with the same string).
 
 ### DNS
 
@@ -100,19 +100,20 @@ PoC credentials by service. Open WebUI signup is disabled.
 | Open WebUI | `https://llm.$BASE_DOMAIN` | `admin@localhost` | `admin` | Chat UI admin (users, model pull) |
 | Open WebUI | same | `researcher@localhost` | `researcher` | Chat UI standard user |
 | Open WebUI | same | `user@localhost` | `user` | Second chat UI user |
-| LiteLLM | `https://models.$BASE_DOMAIN/ui` | `admin` | `LITELLM_MASTER_KEY` | Management UI (keys, spend) |
-| LiteLLM | `https://models.$BASE_DOMAIN` API | Bearer `LITELLM_RESEARCHER_KEY` | — | Direct OpenAI-compatible REST; also the key Open WebUI uses for chat |
+| LiteLLM | `https://models.$BASE_DOMAIN/ui` | `admin` | `LITELLM_MASTER_KEY` | Management UI (create keys, spend) |
+| LiteLLM | Open WebUI → LiteLLM | Bearer `LITELLM_OPENWEBUI_KEY` | — | Virtual key used only by the Open WebUI service for chat |
+| LiteLLM | `https://models.$BASE_DOMAIN` API | Bearer (your virtual key) | — | Direct OpenAI-compatible REST; create keys in the LiteLLM UI |
 | Ollama | internal Docker network only | — | — | No public login. Model pull goes through Open WebUI admin; inference goes through LiteLLM |
 
 Open WebUI accounts are created only when its user table is empty. An existing `postgres-data` volume keeps the previous `admin@$BASE_DOMAIN` accounts until that volume is recreated.
 
-The Open WebUI admin pulls models in **Admin Settings → Models → Pull a model from Ollama.com**. That request goes straight to Ollama. Bare Ollama ids are hidden from the chat picker so inference does not skip the proxy. After a pull, chat (and `GET /v1/models`) shows the model as `ollama/<tag>`, for example `ollama/llama3.2:latest`. Those calls go to LiteLLM, which forwards to Ollama and records spend on the shared researcher key.
+Create a LiteLLM virtual key for Open WebUI (any alias), put the same string in `LITELLM_OPENWEBUI_KEY` in `.env`, and recreate Open WebUI. Chat fails against LiteLLM until that key exists in LiteLLM’s database.
 
-The researcher virtual key (`key_alias` `researcher`) is not budget- or rate-limited. Further people who call the API themselves get a key from the LiteLLM management UI. The Open WebUI `user` account does not have its own LiteLLM key until you create one there.
+The Open WebUI admin pulls models in **Admin Settings → Models → Pull a model from Ollama.com**. That request goes straight to Ollama. Bare Ollama ids are hidden from the chat picker so inference does not skip the proxy. After a pull, chat (and `GET /v1/models`) shows the model as `ollama/<tag>`, for example `ollama/llama3.2:latest`. Those calls go to LiteLLM with `LITELLM_OPENWEBUI_KEY`.
 
 ```bash
 curl "https://models.${BASE_DOMAIN}/v1/chat/completions" \
-  --header "Authorization: Bearer ${LITELLM_RESEARCHER_KEY}" \
+  --header "Authorization: Bearer ${YOUR_LITELLM_VIRTUAL_KEY}" \
   --header "Content-Type: application/json" \
   --data '{"model":"ollama/llama3.2","messages":[{"role":"user","content":"Hello"}]}'
 ```
@@ -142,12 +143,12 @@ journalctl --unit llm-gitops.service
 
 - **Postgres.** Change `POSTGRES_PASSWORD` in Compose (or set it in the project `.env`). Update `DATABASE_URL` in both `litellm.env` and `openwebui.env`. The init SQL does not contain the password. Changing the variable does not alter a database that already exists. On a live volume, `ALTER USER postgres WITH PASSWORD '…'` inside the container, then recreate the app containers. To start over, remove the `postgres-data` volume (that deletes chat history and LiteLLM keys).
 - **Open WebUI.** Change passwords in the admin UI. `WEBUI_ADMIN_PASSWORD` is applied only when the database has no users. Rotate `WEBUI_SECRET_KEY` in `openwebui.env`; existing sessions stop working.
-- **LiteLLM master key.** Change `LITELLM_MASTER_KEY` in `litellm.env` and recreate the LiteLLM container. Leave `LITELLM_SALT_KEY` alone once the database exists. Replace `LITELLM_RESEARCHER_KEY` by creating a new key in the admin UI (or deleting the old alias and letting [`litellm/bootstrap-keys.sh`](litellm/bootstrap-keys.sh) run again) and set the same value as `OPENAI_API_KEY` in `openwebui.env`.
+- **LiteLLM master key.** Change `LITELLM_MASTER_KEY` in `litellm.env` and recreate the LiteLLM container. Leave `LITELLM_SALT_KEY` alone once the database exists. Rotate Open WebUI’s key by creating a new virtual key in the LiteLLM admin UI and setting `LITELLM_OPENWEBUI_KEY` in `.env`, then recreating Open WebUI.
 - **Traefik dashboard.** Generate a new apr1 hash (`openssl passwd --apr1`) and replace the `dashboard-auth` label. In the Compose file write each `$` as `$$`.
 
 ## Not in this iteration
 
 - No OIDC or Keycloak yet. Commented placeholders are on the Open WebUI service and in [`litellm/config.yaml`](litellm/config.yaml). The Postgres init script has a commented `keycloak` database.
 - No vLLM. [`litellm/config.yaml`](litellm/config.yaml) has a commented `vllm/*` model block for a later service.
-- No usage guardrails beyond LiteLLM's default per-key accounting. `max_budget`, `rpm_limit`, and `tpm_limit` are left unset; the bootstrap script says where to add them.
+- No usage guardrails beyond LiteLLM's default per-key accounting. `max_budget`, `rpm_limit`, and `tpm_limit` are left unset; tighten them on each virtual key in the LiteLLM admin UI.
 - No firewall rules for SSH or other host ports.

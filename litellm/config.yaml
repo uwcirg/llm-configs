@@ -14,8 +14,8 @@ litellm_settings:
   # Expand ollama/* from Ollama's /api/tags so /v1/models lists pulled models.
   check_provider_endpoint: true
   # Budgets and rate limits are unset (unlimited). Tighten later with
-  # max_budget, rpm_limit, and tpm_limit on each key in bootstrap-keys.sh,
-  # or with general_settings defaults once you want a global cap.
+  # max_budget, rpm_limit, and tpm_limit on each virtual key in the LiteLLM
+  # admin UI, or with general_settings defaults once you want a global cap.
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
