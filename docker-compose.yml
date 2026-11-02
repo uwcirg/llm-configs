@@ -6,7 +6,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-p9Kx2mQ7vL4nR8wT}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
@@ -21,13 +21,10 @@ services:
   ollama:
     image: ollama/ollama
     restart: unless-stopped
+    env_file:
+      - ./ollama.env
     environment:
       NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES}
-      OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-2}
-      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-2}
-      OLLAMA_MAX_QUEUE: ${OLLAMA_MAX_QUEUE:-512}
-      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-10m}
-      OLLAMA_FLASH_ATTENTION: ${OLLAMA_FLASH_ATTENTION:-1}
     volumes:
       - ollama-models:/root/.ollama
     deploy:
@@ -51,10 +48,8 @@ services:
     image: ghcr.io/berriai/litellm-database:v1.106.5
     restart: unless-stopped
     command: ["--config", "/app/config.yaml"]
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/litellm
-      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-admin-master-key-change-me}
-      LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:-sk-salt-change-me}
+    env_file:
+      - ./litellm.env
     volumes:
       - ./litellm/config.yaml:/app/config.yaml:ro
     labels:
@@ -79,9 +74,8 @@ services:
     image: curlimages/curl:8.11.1
     restart: "no"
     entrypoint: ["/bin/sh", "/bootstrap.sh"]
-    environment:
-      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-admin-master-key-change-me}
-      LITELLM_RESEARCHER_KEY: ${LITELLM_RESEARCHER_KEY:-sk-researcher-key-change-me}
+    env_file:
+      - ./litellm.env
     volumes:
       - ./litellm/bootstrap-keys.sh:/bootstrap.sh:ro
     depends_on:
@@ -93,9 +87,9 @@ services:
   openwebui:
     image: ghcr.io/open-webui/open-webui:v0.12.4
     restart: unless-stopped
+    env_file:
+      - ./openwebui.env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/openwebui
-      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:-poc-webui-secret-key-change-me}
       WEBUI_URL: https://llm.${BASE_DOMAIN}
       ENABLE_SIGNUP: "false"
       ENABLE_PERSISTENT_CONFIG: "false"
@@ -111,8 +105,6 @@ services:
       ENABLE_OPENAI_API: "true"
       OPENAI_API_BASE_URL: http://litellm:4000/v1
       OPENAI_API_BASE_URLS: http://litellm:4000/v1
-      OPENAI_API_KEY: ${LITELLM_RESEARCHER_KEY:-sk-researcher-key-change-me}
-      OPENAI_API_KEYS: ${LITELLM_RESEARCHER_KEY:-sk-researcher-key-change-me}
       # Future Keycloak / OIDC. Leave unset until that service exists.
       # OAUTH_CLIENT_ID: ""
       # OAUTH_CLIENT_SECRET: ""

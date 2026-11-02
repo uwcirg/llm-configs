@@ -1,4 +1,7 @@
 .env
+ollama.env
+litellm.env
+openwebui.env
 
 # The global excludes file ignores *.sql. Keep the Postgres init script tracked.
 !postgres/init/*.sql

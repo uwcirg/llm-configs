@@ -20,21 +20,25 @@ Ollama and Postgres publish no host ports. Only Traefik listens on 80 and 443.
 
 This checkout favors a working default over hardening:
 
-- Postgres superuser is `postgres` / `postgres`.
+- Postgres superuser is `postgres` with a hard-to-guess default password set in Compose (`p9Kx2mQ7vL4nR8wT`). Still plaintext in git.
 - Traefik dashboard Basic Auth is `admin` / `admin`.
-- LiteLLM UI user is `admin`. The password is the master key, default `sk-admin-master-key-change-me`.
-- One shared LiteLLM virtual key (`sk-researcher-key-change-me`) authenticates every Open WebUI chat. Direct API callers can be given their own keys later.
+- LiteLLM UI user is `admin`. The password is `LITELLM_MASTER_KEY` from `litellm.env`.
+- One shared LiteLLM virtual key (`LITELLM_RESEARCHER_KEY`) authenticates every Open WebUI chat. Direct API callers can be given their own keys later.
 - Open WebUI passwords are `admin`, `researcher`, and `user`.
-- `LITELLM_SALT_KEY` defaults to `sk-salt-change-me`. Do not change it after the database exists; stored secrets cannot be decrypted with a new salt.
+- Do not change `LITELLM_SALT_KEY` after the database exists; stored secrets cannot be decrypted with a new salt.
 - Nothing here restricts SSH or other host ports.
 
 ## What you must set
 
-Everything else has a default in [`docker-compose.yml`](docker-compose.yml). Copy the example env file and set two values:
+Host-level values live in the project `.env` (Compose interpolation for DNS and the MIG device). Service-specific settings live in per-service env files.
 
 ```bash
 cd /opt/llm-configs
 cp .env.example .env
+cp ollama.env.example ollama.env
+cp litellm.env.example litellm.env
+cp openwebui.env.example openwebui.env
+# edit .env: set BASE_DOMAIN and NVIDIA_VISIBLE_DEVICES
 ```
 
 | Variable | Example | Purpose |
@@ -42,7 +46,14 @@ cp .env.example .env
 | `BASE_DOMAIN` | `example.org` | Zone for the three public names below |
 | `NVIDIA_VISIBLE_DEVICES` | `MIG-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` | The one MIG slice this stack may use |
 
-Optional overrides (Postgres password, Ollama tuning, LiteLLM keys, `ACME_EMAIL`, `WEBUI_SECRET_KEY`) are comments in [`.env.example`](.env.example).
+Optional overrides:
+
+- Ollama tuning → [`ollama.env.example`](ollama.env.example)
+- LiteLLM keys and `DATABASE_URL` → [`litellm.env.example`](litellm.env.example)
+- Open WebUI secret, OpenAI key, and `DATABASE_URL` → [`openwebui.env.example`](openwebui.env.example)
+- `ACME_EMAIL` → comment in [`.env.example`](.env.example)
+
+If you change the Postgres password in Compose, update both app `DATABASE_URL`s to match. Keep Open WebUI’s `OPENAI_API_KEY` aligned with `LITELLM_RESEARCHER_KEY`.
 
 ### DNS
 
@@ -66,7 +77,7 @@ The host needs Docker Engine, the Compose plugin, and the NVIDIA container toolk
 
 ## First boot
 
-Clone this repo to `/opt/llm-configs` (the systemd unit uses that path). Set `.env`, then:
+Clone this repo to `/opt/llm-configs` (the systemd unit uses that path). Copy the env examples above, set `.env`, then:
 
 ```bash
 docker compose up -d
@@ -76,13 +87,7 @@ Postgres creates databases `litellm` and `openwebui` from [`postgres/init/01-dat
 
 No Ollama models are pulled for you. Model weights persist in the named volume `ollama-models`.
 
-Ollama tuning defaults, overridable from `.env`:
-
-- `OLLAMA_MAX_LOADED_MODELS=2`
-- `OLLAMA_NUM_PARALLEL=2`
-- `OLLAMA_MAX_QUEUE=512`
-- `OLLAMA_KEEP_ALIVE=10m`
-- `OLLAMA_FLASH_ATTENTION=1`
+Ollama tuning defaults live in [`ollama.env.example`](ollama.env.example) (`OLLAMA_MAX_LOADED_MODELS`, `OLLAMA_NUM_PARALLEL`, `OLLAMA_MAX_QUEUE`, `OLLAMA_KEEP_ALIVE`, `OLLAMA_FLASH_ATTENTION`).
 
 ## Accounts
 
@@ -105,7 +110,7 @@ The researcher virtual key (`key_alias` `researcher`) is not budget- or rate-lim
 
 ```bash
 curl "https://models.${BASE_DOMAIN}/v1/chat/completions" \
-  -H "Authorization: Bearer ${LITELLM_RESEARCHER_KEY:-sk-researcher-key-change-me}" \
+  -H "Authorization: Bearer ${LITELLM_RESEARCHER_KEY}" \
   -H "Content-Type: application/json" \
   -d '{"model":"ollama/llama3.2","messages":[{"role":"user","content":"Hello"}]}'
 ```
@@ -114,7 +119,7 @@ The Traefik dashboard is `https://traefik-dashboard.$BASE_DOMAIN` with Basic Aut
 
 ## systemd timer
 
-The timer tracks `origin/main`. Merge this branch to `main` before enabling it, and keep a remote named `origin`. `.env` is gitignored, so a reset does not delete it.
+The timer tracks `origin/main`. Merge this branch to `main` before enabling it, and keep a remote named `origin`. `.env` and the service `*.env` files are gitignored, so a reset does not delete them.
 
 If the clone is not `/opt/llm-configs`, edit `WorkingDirectory` and `ExecStart` in [`deploy/llm-gitops.service`](deploy/llm-gitops.service) first.
 
@@ -133,9 +138,9 @@ journalctl -u llm-gitops.service
 
 ## Rotating the PoC passwords
 
-- **Postgres.** Set `POSTGRES_PASSWORD` (and `POSTGRES_USER` if you change that too). Both `DATABASE_URL`s in Compose use those same defaults, and the init SQL does not contain the password. Changing the variable does not alter a database that already exists. On a live volume, `ALTER USER postgres WITH PASSWORD '…'` inside the container, then recreate the app containers. To start over, remove the `postgres-data` volume (that deletes chat history and LiteLLM keys).
-- **Open WebUI.** Change passwords in the admin UI. `WEBUI_ADMIN_PASSWORD` is applied only when the database has no users. `WEBUI_SECRET_KEY` can be rotated; existing sessions stop working.
-- **LiteLLM master key.** Change `LITELLM_MASTER_KEY` and recreate the LiteLLM container. Leave `LITELLM_SALT_KEY` alone once the database exists. Replace `LITELLM_RESEARCHER_KEY` by creating a new key in the admin UI (or deleting the old alias and letting [`litellm/bootstrap-keys.sh`](litellm/bootstrap-keys.sh) run again) and point Open WebUI's `OPENAI_API_KEY` at it.
+- **Postgres.** Change `POSTGRES_PASSWORD` in Compose (or set it in the project `.env`). Update `DATABASE_URL` in both `litellm.env` and `openwebui.env`. The init SQL does not contain the password. Changing the variable does not alter a database that already exists. On a live volume, `ALTER USER postgres WITH PASSWORD '…'` inside the container, then recreate the app containers. To start over, remove the `postgres-data` volume (that deletes chat history and LiteLLM keys).
+- **Open WebUI.** Change passwords in the admin UI. `WEBUI_ADMIN_PASSWORD` is applied only when the database has no users. Rotate `WEBUI_SECRET_KEY` in `openwebui.env`; existing sessions stop working.
+- **LiteLLM master key.** Change `LITELLM_MASTER_KEY` in `litellm.env` and recreate the LiteLLM container. Leave `LITELLM_SALT_KEY` alone once the database exists. Replace `LITELLM_RESEARCHER_KEY` by creating a new key in the admin UI (or deleting the old alias and letting [`litellm/bootstrap-keys.sh`](litellm/bootstrap-keys.sh) run again) and set the same value as `OPENAI_API_KEY` in `openwebui.env`.
 - **Traefik dashboard.** Generate a new apr1 hash (`openssl passwd -apr1`) and replace the `dashboard-auth` label. In the Compose file write each `$` as `$$`.
 
 ## Not in this iteration
