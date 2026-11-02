@@ -52,7 +52,7 @@ Create an A, AAAA, or CNAME for each name, aimed at this host:
 - `models.$BASE_DOMAIN` — LiteLLM
 - `traefik-dashboard.$BASE_DOMAIN` — Traefik dashboard
 
-Ports 80 and 443 must be reachable from the Internet. Let's Encrypt uses the HTTP-01 challenge. Traefik redirects other HTTP requests to HTTPS. The account email defaults to `ivanc@uw.edu`.
+Ports 80 and 443 must be reachable from the Internet. Let's Encrypt uses the HTTP-01 challenge. Traefik redirects other HTTP requests to HTTPS. The account email defaults to `cirg-adm@uw.edu`.
 
 ### MIG device
 

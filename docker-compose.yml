@@ -168,7 +168,7 @@ services:
     restart: unless-stopped
     command:
       - --configFile=/etc/traefik/traefik.yml
-      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-ivanc@uw.edu}
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-cirg-adm@uw.edu}
     ports:
       - "80:80"
       - "443:443"
