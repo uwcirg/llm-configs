@@ -4,14 +4,16 @@ GitOps Compose stack for shared LLM access on one MIG slice of an NVIDIA H200. R
 
 A systemd timer on the host runs `git fetch` and `git reset --hard origin/main`, then `docker compose pull` and `docker compose up --detach`. There is no webhook and no push-to-deploy workflow.
 
-```text
-Browser / SDK
-  → Traefik :443
-      chat.<BASE_DOMAIN> → Open WebUI
-      llm.<BASE_DOMAIN>  → LiteLLM (API and admin UI)
-  Open WebUI --chat--> LiteLLM --ollama_chat--> Ollama (one MIG device)
-  Open WebUI --pull--> Ollama
-  LiteLLM and Open WebUI → Postgres
+```mermaid
+flowchart LR
+  Internet --> Traefik
+  Traefik --> OpenWebUI[Open WebUI]
+  Traefik --> LiteLLM
+  OpenWebUI --> LiteLLM
+  OpenWebUI --> Ollama
+  LiteLLM --> Ollama
+  OpenWebUI --> Postgres
+  LiteLLM --> Postgres
 ```
 
 Ollama and Postgres publish no host ports. Only Traefik listens on 80 and 443.
