@@ -51,15 +51,15 @@ services:
     env_file:
       - ./litellm.env
     environment:
-      PROXY_BASE_URL: https://models.${BASE_DOMAIN}
+      PROXY_BASE_URL: https://llm.${BASE_DOMAIN}
     volumes:
       - ./litellm/config.yaml:/app/config.yaml:ro
     labels:
       - traefik.enable=true
-      - traefik.http.routers.models.rule=Host(`models.${BASE_DOMAIN}`)
-      - traefik.http.routers.models.entrypoints=websecure
-      - traefik.http.routers.models.tls.certresolver=letsencrypt
-      - traefik.http.services.models.loadbalancer.server.port=4000
+      - traefik.http.routers.llm.rule=Host(`llm.${BASE_DOMAIN}`)
+      - traefik.http.routers.llm.entrypoints=websecure
+      - traefik.http.routers.llm.tls.certresolver=letsencrypt
+      - traefik.http.services.llm.loadbalancer.server.port=4000
     depends_on:
       postgres:
         condition: service_healthy
@@ -78,7 +78,7 @@ services:
     env_file:
       - ./openwebui.env
     environment:
-      WEBUI_URL: https://llm.${BASE_DOMAIN}
+      WEBUI_URL: https://chat.${BASE_DOMAIN}
       ENABLE_SIGNUP: "false"
       ENABLE_PERSISTENT_CONFIG: "false"
       WEBUI_ADMIN_EMAIL: admin@localhost
@@ -101,15 +101,15 @@ services:
       # OAUTH_CLIENT_ID: ""
       # OAUTH_CLIENT_SECRET: ""
       # OPENID_PROVIDER_URL: https://auth.${BASE_DOMAIN}/realms/llm/.well-known/openid-configuration
-      # OPENID_REDIRECT_URI: https://llm.${BASE_DOMAIN}/oauth/oidc/callback
+      # OPENID_REDIRECT_URI: https://chat.${BASE_DOMAIN}/oauth/oidc/callback
       # ENABLE_OAUTH_SIGNUP: "true"
       # OAUTH_PROVIDER_NAME: Keycloak
     labels:
       - traefik.enable=true
-      - traefik.http.routers.llm.rule=Host(`llm.${BASE_DOMAIN}`)
-      - traefik.http.routers.llm.entrypoints=websecure
-      - traefik.http.routers.llm.tls.certresolver=letsencrypt
-      - traefik.http.services.llm.loadbalancer.server.port=8080
+      - traefik.http.routers.chat.rule=Host(`chat.${BASE_DOMAIN}`)
+      - traefik.http.routers.chat.entrypoints=websecure
+      - traefik.http.routers.chat.tls.certresolver=letsencrypt
+      - traefik.http.services.chat.loadbalancer.server.port=8080
     depends_on:
       postgres:
         condition: service_healthy

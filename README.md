@@ -7,8 +7,8 @@ A systemd timer on the host runs `git fetch` and `git reset --hard origin/main`,
 ```text
 Browser / SDK
   → Traefik :443
-      llm.<BASE_DOMAIN>    → Open WebUI
-      models.<BASE_DOMAIN> → LiteLLM (API and admin UI)
+      chat.<BASE_DOMAIN> → Open WebUI
+      llm.<BASE_DOMAIN>  → LiteLLM (API and admin UI)
   Open WebUI --chat--> LiteLLM --ollama_chat--> Ollama (one MIG device)
   Open WebUI --pull--> Ollama
   LiteLLM and Open WebUI → Postgres
@@ -16,7 +16,7 @@ Browser / SDK
 
 Ollama and Postgres publish no host ports. Only Traefik listens on 80 and 443.
 
-LiteLLM trusts Traefik’s `X-Forwarded-*` headers from any peer (PoC) so spend logs show the client IP from `X-Forwarded-For` instead of the Traefik container address. `PROXY_BASE_URL` is set to `https://models.$BASE_DOMAIN`.
+LiteLLM trusts Traefik’s `X-Forwarded-*` headers from any peer (PoC) so spend logs show the client IP from `X-Forwarded-For` instead of the Traefik container address. `PROXY_BASE_URL` is set to `https://llm.$BASE_DOMAIN`.
 
 ## PoC only — replace before production
 
@@ -61,8 +61,8 @@ If you change the Postgres password in Compose, update both app `DATABASE_URL`s 
 
 Create an A, AAAA, or CNAME for each name, aimed at this host:
 
-- `llm.$BASE_DOMAIN` — Open WebUI
-- `models.$BASE_DOMAIN` — LiteLLM
+- `chat.$BASE_DOMAIN` — Open WebUI
+- `llm.$BASE_DOMAIN` — LiteLLM
 - `traefik-dashboard.$BASE_DOMAIN` — Traefik dashboard
 
 Ports 80 and 443 must be reachable from the Internet. Let's Encrypt uses the HTTP-01 challenge. Traefik redirects other HTTP requests to HTTPS. The account email defaults to `cirg-adm@uw.edu`.
@@ -97,12 +97,12 @@ PoC credentials by service. Open WebUI signup is disabled.
 
 | Service | Where | Login / key | Password / secret | Purpose |
 |---------|-------|-------------|-------------------|---------|
-| Open WebUI | `https://llm.$BASE_DOMAIN` | `admin@localhost` | `admin` | Chat UI admin (users, model pull) |
+| Open WebUI | `https://chat.$BASE_DOMAIN` | `admin@localhost` | `admin` | Chat UI admin (users, model pull) |
 | Open WebUI | same | `researcher@localhost` | `researcher` | Chat UI standard user |
 | Open WebUI | same | `user@localhost` | `user` | Second chat UI user |
-| LiteLLM | `https://models.$BASE_DOMAIN/ui` | `admin` | `LITELLM_MASTER_KEY` | Management UI (create keys, spend) |
+| LiteLLM | `https://llm.$BASE_DOMAIN/ui` | `admin` | `LITELLM_MASTER_KEY` | Management UI (create keys, spend) |
 | LiteLLM | Open WebUI → LiteLLM | Bearer `LITELLM_OPENWEBUI_KEY` | — | Virtual key used only by the Open WebUI service for chat |
-| LiteLLM | `https://models.$BASE_DOMAIN` API | Bearer (your virtual key) | — | Direct OpenAI-compatible REST; create keys in the LiteLLM UI |
+| LiteLLM | `https://llm.$BASE_DOMAIN` API | Bearer (your virtual key) | — | Direct OpenAI-compatible REST; create keys in the LiteLLM UI |
 | Ollama | internal Docker network only | — | — | No public login. Model pull goes through Open WebUI admin; inference goes through LiteLLM |
 
 Open WebUI accounts are created only when its user table is empty. An existing `postgres-data` volume keeps the previous `admin@$BASE_DOMAIN` accounts until that volume is recreated.
@@ -112,7 +112,7 @@ Create a LiteLLM virtual key for Open WebUI (any alias), put the same string in 
 The Open WebUI admin pulls models in **Admin Settings → Models → Pull a model from Ollama.com**. That request goes straight to Ollama. Bare Ollama ids are hidden from the chat picker so inference does not skip the proxy. After a pull, chat (and `GET /v1/models`) shows the model as `ollama/<tag>`, for example `ollama/llama3.2:latest`. Those calls go to LiteLLM with `LITELLM_OPENWEBUI_KEY`.
 
 ```bash
-curl "https://models.${BASE_DOMAIN}/v1/chat/completions" \
+curl "https://llm.${BASE_DOMAIN}/v1/chat/completions" \
   --header "Authorization: Bearer ${YOUR_LITELLM_VIRTUAL_KEY}" \
   --header "Content-Type: application/json" \
   --data '{"model":"ollama/llama3.2","messages":[{"role":"user","content":"Hello"}]}'
