@@ -86,19 +86,22 @@ Ollama tuning defaults, overridable from `.env`:
 
 ## Accounts
 
-Open WebUI logins are email addresses. Signup is disabled.
+PoC credentials by service. Open WebUI signup is disabled.
 
-| Login | Password | Role |
-|-------|----------|------|
-| `admin@localhost` | `admin` | Admin: users, and model pull |
-| `researcher@localhost` | `researcher` | Standard user |
-| `user@localhost` | `user` | Second standard user, for multi-user checks |
+| Service | Where | Login / key | Password / secret | Purpose |
+|---------|-------|-------------|-------------------|---------|
+| Open WebUI | `https://llm.$BASE_DOMAIN` | `admin@localhost` | `admin` | Chat UI admin (users, model pull) |
+| Open WebUI | same | `researcher@localhost` | `researcher` | Chat UI standard user |
+| Open WebUI | same | `user@localhost` | `user` | Second chat UI user |
+| LiteLLM | `https://models.$BASE_DOMAIN/ui` | `admin` | `LITELLM_MASTER_KEY` | Management UI (keys, spend) |
+| LiteLLM | `https://models.$BASE_DOMAIN` API | Bearer `LITELLM_RESEARCHER_KEY` | — | Direct OpenAI-compatible REST; also the key Open WebUI uses for chat |
+| Ollama | internal Docker network only | — | — | No public login. Model pull goes through Open WebUI admin; inference goes through LiteLLM |
 
-These addresses are created only when the Open WebUI user table is empty. An existing `postgres-data` volume keeps the previous `admin@$BASE_DOMAIN` accounts until that volume is recreated.
+Open WebUI accounts are created only when its user table is empty. An existing `postgres-data` volume keeps the previous `admin@$BASE_DOMAIN` accounts until that volume is recreated.
 
-The admin account pulls models in **Admin Settings → Models → Pull a model from Ollama.com**. That request goes straight to the Ollama API. Bare Ollama ids are hidden from the chat picker so inference does not skip the proxy. After a pull, chat (and `GET /v1/models`) shows the model as `ollama/<tag>`, for example `ollama/llama3.2:latest`. Those calls go to LiteLLM, which forwards to Ollama and records spend on the shared researcher key.
+The Open WebUI admin pulls models in **Admin Settings → Models → Pull a model from Ollama.com**. That request goes straight to Ollama. Bare Ollama ids are hidden from the chat picker so inference does not skip the proxy. After a pull, chat (and `GET /v1/models`) shows the model as `ollama/<tag>`, for example `ollama/llama3.2:latest`. Those calls go to LiteLLM, which forwards to Ollama and records spend on the shared researcher key.
 
-Direct REST uses the same pre-created key (`key_alias` `researcher`). It is not budget- or rate-limited. Further people who call the API themselves get a key from the LiteLLM admin UI at `https://models.$BASE_DOMAIN/ui` (user `admin`, password = `LITELLM_MASTER_KEY`). The `user` account does not have a virtual key until you create one there.
+The researcher virtual key (`key_alias` `researcher`) is not budget- or rate-limited. Further people who call the API themselves get a key from the LiteLLM management UI. The Open WebUI `user` account does not have its own LiteLLM key until you create one there.
 
 ```bash
 curl "https://models.${BASE_DOMAIN}/v1/chat/completions" \
