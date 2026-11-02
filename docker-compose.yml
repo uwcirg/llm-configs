@@ -2,7 +2,7 @@ name: llm-configs
 
 services:
   postgres:
-    image: postgres:${POSTGRES_DOCKER_IMAGE_TAG:-16}
+    image: postgres:${POSTGRES_DOCKER_IMAGE_TAG:-18}
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
