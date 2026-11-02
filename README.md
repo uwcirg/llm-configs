@@ -2,7 +2,7 @@
 
 GitOps Compose stack for shared LLM access on one MIG slice of an NVIDIA H200. Researchers use a chat UI or an OpenAI-compatible API. They do not get a shell on the host.
 
-A systemd timer on the host runs `git fetch` and `git reset --hard origin/main`, then `docker compose pull` and `docker compose up -d`. There is no webhook and no push-to-deploy workflow.
+A systemd timer on the host runs `git fetch` and `git reset --hard origin/main`, then `docker compose pull` and `docker compose up --detach`. There is no webhook and no push-to-deploy workflow.
 
 ```text
 Browser / SDK
@@ -70,7 +70,7 @@ Ports 80 and 443 must be reachable from the Internet. Let's Encrypt uses the HTT
 ### MIG device
 
 ```bash
-nvidia-smi -L
+nvidia-smi --list-gpus
 ```
 
 A sliced GPU lists a `MIG-…` UUID under the physical GPU. Put that UUID in `NVIDIA_VISIBLE_DEVICES`. Compose passes it to the Ollama container as `NVIDIA_VISIBLE_DEVICES` and as the NVIDIA device reservation, so this project stays on that slice.
@@ -82,7 +82,7 @@ The host needs Docker Engine, the Compose plugin, and the NVIDIA container toolk
 Clone this repo to `/opt/llm-configs` (the systemd unit uses that path). Copy the env examples above, set `.env`, then:
 
 ```bash
-docker compose up -d
+docker compose up --detach
 ```
 
 Postgres creates databases `litellm` and `openwebui` from [`postgres/init/01-databases.sql`](postgres/init/01-databases.sql) the first time the data volume is empty. A `keycloak` database is left commented for later. Init does not run again on an existing volume.
@@ -112,9 +112,9 @@ The researcher virtual key (`key_alias` `researcher`) is not budget- or rate-lim
 
 ```bash
 curl "https://models.${BASE_DOMAIN}/v1/chat/completions" \
-  -H "Authorization: Bearer ${LITELLM_RESEARCHER_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"model":"ollama/llama3.2","messages":[{"role":"user","content":"Hello"}]}'
+  --header "Authorization: Bearer ${LITELLM_RESEARCHER_KEY}" \
+  --header "Content-Type: application/json" \
+  --data '{"model":"ollama/llama3.2","messages":[{"role":"user","content":"Hello"}]}'
 ```
 
 The Traefik dashboard is `https://traefik-dashboard.$BASE_DOMAIN` with Basic Auth `admin` / `admin`.
@@ -135,7 +135,7 @@ The timer waits 2 minutes after boot, then runs 5 minutes after each successful 
 
 ```bash
 systemctl list-timers llm-gitops.timer
-journalctl -u llm-gitops.service
+journalctl --unit llm-gitops.service
 ```
 
 ## Rotating the PoC passwords
@@ -143,7 +143,7 @@ journalctl -u llm-gitops.service
 - **Postgres.** Change `POSTGRES_PASSWORD` in Compose (or set it in the project `.env`). Update `DATABASE_URL` in both `litellm.env` and `openwebui.env`. The init SQL does not contain the password. Changing the variable does not alter a database that already exists. On a live volume, `ALTER USER postgres WITH PASSWORD '…'` inside the container, then recreate the app containers. To start over, remove the `postgres-data` volume (that deletes chat history and LiteLLM keys).
 - **Open WebUI.** Change passwords in the admin UI. `WEBUI_ADMIN_PASSWORD` is applied only when the database has no users. Rotate `WEBUI_SECRET_KEY` in `openwebui.env`; existing sessions stop working.
 - **LiteLLM master key.** Change `LITELLM_MASTER_KEY` in `litellm.env` and recreate the LiteLLM container. Leave `LITELLM_SALT_KEY` alone once the database exists. Replace `LITELLM_RESEARCHER_KEY` by creating a new key in the admin UI (or deleting the old alias and letting [`litellm/bootstrap-keys.sh`](litellm/bootstrap-keys.sh) run again) and set the same value as `OPENAI_API_KEY` in `openwebui.env`.
-- **Traefik dashboard.** Generate a new apr1 hash (`openssl passwd -apr1`) and replace the `dashboard-auth` label. In the Compose file write each `$` as `$$`.
+- **Traefik dashboard.** Generate a new apr1 hash (`openssl passwd --apr1`) and replace the `dashboard-auth` label. In the Compose file write each `$` as `$$`.
 
 ## Not in this iteration
 

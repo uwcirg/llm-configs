@@ -7,9 +7,9 @@ set -eu
 base=http://litellm:4000
 auth="Authorization: Bearer ${LITELLM_MASTER_KEY}"
 
-code=$(curl -sS -o /tmp/keyinfo -w '%{http_code}' \
+code=$(curl --silent --show-error --output /tmp/keyinfo --write-out '%{http_code}' \
   "${base}/key/info?key=${LITELLM_RESEARCHER_KEY}" \
-  -H "$auth")
+  --header "$auth")
 if [ "$code" = "200" ]; then
   echo "researcher key already present"
   exit 0
@@ -17,18 +17,18 @@ fi
 
 # models omitted: the key may call every configured model, including ones
 # pulled later. Add "models": ["ollama/*"] here to restrict it.
-code=$(curl -sS -o /tmp/keygen -w '%{http_code}' \
-  -X POST "${base}/key/generate" \
-  -H "$auth" \
-  -H 'Content-Type: application/json' \
-  -d "{\"key\":\"${LITELLM_RESEARCHER_KEY}\",\"key_alias\":\"researcher\"}")
+code=$(curl --silent --show-error --output /tmp/keygen --write-out '%{http_code}' \
+  --request POST "${base}/key/generate" \
+  --header "$auth" \
+  --header 'Content-Type: application/json' \
+  --data "{\"key\":\"${LITELLM_RESEARCHER_KEY}\",\"key_alias\":\"researcher\"}")
 
 if [ "$code" = "200" ]; then
   echo "created researcher key"
   exit 0
 fi
 
-if grep -q 'already exists' /tmp/keygen; then
+if grep --quiet 'already exists' /tmp/keygen; then
   echo "researcher key already present"
   exit 0
 fi
