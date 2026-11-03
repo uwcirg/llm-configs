@@ -1,6 +1,7 @@
 #!/bin/sh
 # Create the standard Open WebUI users after the admin account exists.
-# Passwords are the PoC literals (researcher / user). Safe to re-run.
+# Passwords come from env (Compose defaults: admin / researcher / user).
+# Safe to re-run.
 set -eu
 
 base=http://openwebui:8080

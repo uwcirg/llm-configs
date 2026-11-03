@@ -28,7 +28,7 @@ This checkout favors a working default over hardening:
 - Traefik dashboard Basic Auth is `admin` / `admin`.
 - LiteLLM UI user is `admin`. The password is `LITELLM_MASTER_KEY` from `litellm.env`.
 - Open WebUI chat uses a dedicated LiteLLM virtual key (`LITELLM_OPENWEBUI_KEY`). Compose defaults it and `litellm-bootstrap` creates it in LiteLLM on first boot. Direct API callers still create their own keys in the LiteLLM admin UI.
-- Open WebUI passwords are `admin`, `researcher`, and `user`.
+- Open WebUI passwords default to `admin`, `researcher`, and `user` (`WEBUI_ADMIN_PASSWORD`, `RESEARCHER_PASSWORD`, `USER_PASSWORD` in `.env`).
 - Do not change `LITELLM_SALT_KEY` after the database exists; stored secrets cannot be decrypted with a new salt.
 - Nothing here restricts SSH or other host ports.
 
@@ -55,7 +55,7 @@ Optional overrides:
 - Ollama tuning → [`ollama.env.example`](ollama.env.example)
 - LiteLLM master/salt keys → [`litellm.env.example`](litellm.env.example)
 - Open WebUI secret → [`openwebui.env.example`](openwebui.env.example)
-- `ACME_EMAIL`, `LITELLM_OPENWEBUI_KEY` → comments in [`.env.example`](.env.example)
+- `ACME_EMAIL`, `LITELLM_OPENWEBUI_KEY`, Open WebUI passwords → comments in [`.env.example`](.env.example)
 
 App `DATABASE_URL`s are built in Compose from `POSTGRES_USER` / `POSTGRES_PASSWORD`, so they stay aligned with the Postgres service. Override `LITELLM_OPENWEBUI_KEY` in `.env` if you do not want the Compose default; `litellm-bootstrap` creates that exact key (alias `openwebui`) before Open WebUI starts.
 
@@ -99,9 +99,9 @@ PoC credentials by service. Open WebUI signup is disabled.
 
 | Service | Where | Login / key | Password / secret | Purpose |
 |---------|-------|-------------|-------------------|---------|
-| Open WebUI | `https://chat.$BASE_DOMAIN` | `admin@localhost` | `admin` | Chat UI admin (users, model pull) |
-| Open WebUI | same | `researcher@localhost` | `researcher` | Chat UI standard user |
-| Open WebUI | same | `user@localhost` | `user` | Second chat UI user |
+| Open WebUI | `https://chat.$BASE_DOMAIN` | `admin@localhost` | `WEBUI_ADMIN_PASSWORD` (default `admin`) | Chat UI admin (users, model pull) |
+| Open WebUI | same | `researcher@localhost` | `RESEARCHER_PASSWORD` (default `researcher`) | Chat UI standard user |
+| Open WebUI | same | `user@localhost` | `USER_PASSWORD` (default `user`) | Second chat UI user |
 | LiteLLM | `https://llm.$BASE_DOMAIN/ui` | `admin` | `LITELLM_MASTER_KEY` | Management UI (create keys, spend) |
 | LiteLLM | Open WebUI → LiteLLM | Bearer `LITELLM_OPENWEBUI_KEY` | — | Virtual key for Open WebUI chat; created by `litellm-bootstrap` |
 | LiteLLM | `https://llm.$BASE_DOMAIN` API | Bearer (your virtual key) | — | Direct OpenAI-compatible REST; create keys in the LiteLLM UI |
@@ -144,7 +144,7 @@ journalctl --unit llm-gitops.service
 ## Rotating the PoC passwords
 
 - **Postgres.** Change `POSTGRES_PASSWORD` in Compose (or set it in the project `.env`). App `DATABASE_URL`s pick up the new value automatically. The init SQL does not contain the password. Changing the variable does not alter a database that already exists. On a live volume, `ALTER USER postgres WITH PASSWORD '…'` inside the container, then recreate the app containers. To start over, remove the `postgres-data` volume (that deletes chat history and LiteLLM keys).
-- **Open WebUI.** Change passwords in the admin UI. `WEBUI_ADMIN_PASSWORD` is applied only when the database has no users. Rotate `WEBUI_SECRET_KEY` in `openwebui.env`; existing sessions stop working.
+- **Open WebUI.** Change passwords in the admin UI for existing users. `WEBUI_ADMIN_PASSWORD` / `RESEARCHER_PASSWORD` / `USER_PASSWORD` in `.env` apply only on first boot (empty user table / bootstrap create). Rotate `WEBUI_SECRET_KEY` in `openwebui.env`; existing sessions stop working.
 - **LiteLLM master key.** Change `LITELLM_MASTER_KEY` in `litellm.env` and recreate the LiteLLM container. Leave `LITELLM_SALT_KEY` alone once the database exists. Rotate Open WebUI’s key by setting a new `LITELLM_OPENWEBUI_KEY` in `.env`, deleting the old `openwebui` key in the LiteLLM UI if needed, then recreating `litellm-bootstrap` and Open WebUI.
 - **Traefik dashboard.** Generate a new apr1 hash (`openssl passwd --apr1`) and replace the `dashboard-auth` label. In the Compose file write each `$` as `$$`.
 

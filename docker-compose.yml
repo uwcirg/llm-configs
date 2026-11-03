@@ -101,7 +101,7 @@ services:
       ENABLE_SIGNUP: "false"
       ENABLE_PERSISTENT_CONFIG: "false"
       WEBUI_ADMIN_EMAIL: admin@localhost
-      WEBUI_ADMIN_PASSWORD: admin
+      WEBUI_ADMIN_PASSWORD: ${WEBUI_ADMIN_PASSWORD:-admin}
       WEBUI_ADMIN_NAME: admin
       ENABLE_OLLAMA_API: "true"
       OLLAMA_BASE_URL: http://ollama:11434
@@ -154,12 +154,12 @@ services:
     entrypoint: ["/bin/sh", "/bootstrap.sh"]
     environment:
       WEBUI_ADMIN_EMAIL: admin@localhost
-      WEBUI_ADMIN_PASSWORD: admin
+      WEBUI_ADMIN_PASSWORD: ${WEBUI_ADMIN_PASSWORD:-admin}
       RESEARCHER_EMAIL: researcher@localhost
-      RESEARCHER_PASSWORD: researcher
+      RESEARCHER_PASSWORD: ${RESEARCHER_PASSWORD:-researcher}
       RESEARCHER_NAME: researcher
       USER_EMAIL: user@localhost
-      USER_PASSWORD: user
+      USER_PASSWORD: ${USER_PASSWORD:-user}
       USER_NAME: user
     volumes:
       - ./openwebui/bootstrap-users.sh:/bootstrap.sh:ro
