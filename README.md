@@ -109,7 +109,7 @@ PoC credentials by service. Open WebUI signup is disabled.
 
 Open WebUI accounts are created only when its user table is empty. An existing `postgres-data` volume keeps the previous `admin@$BASE_DOMAIN` accounts until that volume is recreated.
 
-`litellm-bootstrap` creates the Open WebUI virtual key from `LITELLM_OPENWEBUI_KEY` after LiteLLM is healthy. Open WebUI waits for that job to finish.
+`litellm-bootstrap` creates the Open WebUI virtual key from `LITELLM_OPENWEBUI_KEY` after LiteLLM is healthy (models: `all-proxy-models`). Open WebUI waits for that job to finish.
 
 The Open WebUI admin pulls models in **Admin Settings → Models → Pull a model from Ollama.com**. That request goes straight to Ollama. Bare Ollama ids are hidden from the chat picker so inference does not skip the proxy. After a pull, chat (and `GET /v1/models`) shows the model as `ollama/<tag>`, for example `ollama/llama3.2:latest`. Those calls go to LiteLLM with `LITELLM_OPENWEBUI_KEY`.
 
