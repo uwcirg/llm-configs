@@ -19,7 +19,7 @@ services:
       - llm_net
 
   ollama:
-    image: ollama/ollama:${OLLAMA_DOCKER_IMAGE_TAG:-latest}
+    image: ollama/ollama:${OLLAMA_DOCKER_IMAGE_TAG:-0.40.16}
     restart: unless-stopped
     env_file:
       - ./ollama.env
