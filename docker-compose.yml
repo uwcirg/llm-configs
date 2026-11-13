@@ -1,0 +1,205 @@
+name: llm-configs
+
+services:
+  postgres:
+    image: postgres:${POSTGRES_DOCKER_IMAGE_TAG:-18}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-p9Kx2mQ7vL4nR8wT}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - llm_net
+
+  ollama:
+    image: ollama/ollama:${OLLAMA_DOCKER_IMAGE_TAG:-0.40.16}
+    restart: unless-stopped
+    env_file:
+      - ./ollama.env
+    environment:
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES}
+    volumes:
+      - ollama-models:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids:
+                - ${NVIDIA_VISIBLE_DEVICES}
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - llm_net
+
+  litellm:
+    image: ghcr.io/berriai/litellm-database:${LITELLM_DOCKER_IMAGE_TAG:-v1.106.5}
+    restart: unless-stopped
+    command: ["--config", "/app/config.yaml"]
+    env_file:
+      - ./litellm.env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-p9Kx2mQ7vL4nR8wT}@postgres:5432/litellm
+      PROXY_BASE_URL: https://llm.${BASE_DOMAIN}
+    expose:
+      - 4000
+    volumes:
+      - ./litellm/config.yaml:/app/config.yaml:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.llm.rule=Host(`llm.${BASE_DOMAIN}`)
+      - traefik.http.routers.llm.entrypoints=websecure
+      - traefik.http.routers.llm.tls.certresolver=letsencrypt
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/readiness')"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 40s
+    networks:
+      - llm_net
+
+  litellm-bootstrap:
+    image: curlimages/curl:${LITELLM_BOOTSTRAP_DOCKER_IMAGE_TAG:-8.11.1}
+    restart: "no"
+    entrypoint: ["/bin/sh", "/bootstrap.sh"]
+    env_file:
+      - ./litellm.env
+    environment:
+      LITELLM_OPENWEBUI_KEY: ${LITELLM_OPENWEBUI_KEY:-sk-openwebui-key-change-me}
+    volumes:
+      - ./litellm/bootstrap-openwebui-key.sh:/bootstrap.sh:ro
+    depends_on:
+      litellm:
+        condition: service_healthy
+    networks:
+      - llm_net
+
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:${OPENWEBUI_DOCKER_IMAGE_TAG:-v0.12.4}
+    restart: unless-stopped
+    env_file:
+      - ./openwebui.env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-p9Kx2mQ7vL4nR8wT}@postgres:5432/openwebui
+      WEBUI_URL: https://chat.${BASE_DOMAIN}
+      ENABLE_SIGNUP: "false"
+      ENABLE_PERSISTENT_CONFIG: "false"
+      WEBUI_ADMIN_EMAIL: admin@localhost
+      WEBUI_ADMIN_PASSWORD: ${WEBUI_ADMIN_PASSWORD:-admin}
+      WEBUI_ADMIN_NAME: admin
+      ENABLE_OLLAMA_API: "true"
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_BASE_URLS: http://ollama:11434
+      # Hide bare Ollama ids from the chat selector. Admin → Settings → Models
+      # still pulls through this connection. Chat uses the LiteLLM models.
+      OLLAMA_API_CONFIGS: '{"0":{"enable":true,"model_ids":["__pull_only__"]}}'
+      ENABLE_OPENAI_API: "true"
+      OPENAI_API_BASE_URL: http://litellm:4000/v1
+      OPENAI_API_BASE_URLS: http://litellm:4000/v1
+      # Dedicated LiteLLM virtual key for this Open WebUI instance. Uses
+      # LITELLM_OPENWEBUI_KEY from the project .env / shell when set.
+      OPENAI_API_KEY: ${LITELLM_OPENWEBUI_KEY:-sk-openwebui-key-change-me}
+      OPENAI_API_KEYS: ${LITELLM_OPENWEBUI_KEY:-sk-openwebui-key-change-me}
+      # Future Keycloak / OIDC. Leave unset until that service exists.
+      # OAUTH_CLIENT_ID: ""
+      # OAUTH_CLIENT_SECRET: ""
+      # OPENID_PROVIDER_URL: https://auth.${BASE_DOMAIN}/realms/llm/.well-known/openid-configuration
+      # OPENID_REDIRECT_URI: https://chat.${BASE_DOMAIN}/oauth/oidc/callback
+      # ENABLE_OAUTH_SIGNUP: "true"
+      # OAUTH_PROVIDER_NAME: Keycloak
+    expose:
+      - 8080
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.chat.rule=Host(`chat.${BASE_DOMAIN}`)
+      - traefik.http.routers.chat.entrypoints=websecure
+      - traefik.http.routers.chat.tls.certresolver=letsencrypt
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+      litellm:
+        condition: service_healthy
+      litellm-bootstrap:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 40s
+    networks:
+      - llm_net
+
+  openwebui-bootstrap:
+    image: curlimages/curl:${OPENWEBUI_BOOTSTRAP_DOCKER_IMAGE_TAG:-8.11.1}
+    restart: "no"
+    entrypoint: ["/bin/sh", "/bootstrap.sh"]
+    environment:
+      WEBUI_ADMIN_EMAIL: admin@localhost
+      WEBUI_ADMIN_PASSWORD: ${WEBUI_ADMIN_PASSWORD:-admin}
+      RESEARCHER_EMAIL: researcher@localhost
+      RESEARCHER_PASSWORD: ${RESEARCHER_PASSWORD:-researcher}
+      RESEARCHER_NAME: researcher
+      USER_EMAIL: user@localhost
+      USER_PASSWORD: ${USER_PASSWORD:-user}
+      USER_NAME: user
+    volumes:
+      - ./openwebui/bootstrap-users.sh:/bootstrap.sh:ro
+    depends_on:
+      openwebui:
+        condition: service_healthy
+    networks:
+      - llm_net
+
+  traefik:
+    image: traefik:${TRAEFIK_DOCKER_IMAGE_TAG:-v3.6.25}
+    restart: unless-stopped
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-cirg-adm@uw.edu}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-acme:/letsencrypt
+    # PoC only — replace before production. Basic Auth is admin / admin.
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dashboard.rule=Host(`traefik-dashboard.${BASE_DOMAIN}`)
+      - traefik.http.routers.dashboard.entrypoints=websecure
+      - traefik.http.routers.dashboard.service=api@internal
+      - traefik.http.routers.dashboard.tls.certresolver=letsencrypt
+      - traefik.http.routers.dashboard.middlewares=dashboard-auth
+      - traefik.http.middlewares.dashboard-auth.basicauth.users=admin:$$apr1$$1i6/eB1/$$.soOV9qd1KopUGFhfw/zL0
+    networks:
+      - llm_net
+
+volumes:
+  postgres-data:
+  ollama-models:
+  traefik-acme:
+
+networks:
+  llm_net:
+    name: llm_net
+    driver: bridge
